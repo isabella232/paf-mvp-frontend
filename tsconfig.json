@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "jsx": "react",
+    "jsxFactory": "h",
+    "module": "esnext",
+    "target": "es5",
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "moduleResolution": "Node",
+    "plugins": [{ "name": "typescript-plugin-css-modules" }]
+  },
+  "exclude": [
+    "node_modules"
+  ],
+  "include": ["src"]
+}
