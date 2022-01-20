@@ -1,7 +1,7 @@
 {
-  "name": "widget",
-  "version": "1.0.0",
-  "description": "PrebidSSO widgets",
+  "name": "paf-mvp-frontend",
+  "version": "0.0.1",
+  "description": "Prebid Addressability Framework (PAF) frontend library and widget",
   "main": "src/main.tsx",
   "scripts": {
     "start": "rollup -c -w",
@@ -12,8 +12,16 @@
     "lint:prettier": "prettier --list-different \"./src/**/*.{tsx,ts}\"",
     "prettier": "prettier --write \"./src/**/*.{tsx,ts}\" --loglevel silent"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/criteo/paf-mvp-frontend.git"
+  },
   "author": "",
   "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/criteo/paf-mvp-frontend/issues"
+  },
+  "homepage": "https://github.com/criteo/paf-mvp-frontend#readme",
   "dependencies": {
     "@preact/compat": "^17.0.3",
     "preact": "^10.5.15",

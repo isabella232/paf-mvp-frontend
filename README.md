@@ -1,4 +1,4 @@
-# PAF frontend app
+# Prebid Addressability Framework (PAF) frontend library and widget
 
 This app is a javascript library that provides API to authenticate user and get his consent for
 personalized advertisement.
