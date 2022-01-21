@@ -6,6 +6,7 @@
   "scripts": {
     "start": "rollup -c -w",
     "build": "rollup -c",
+    "update": "git submodule foreach \"git checkout main; git pull\"",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint ./src",
     "lint:fix": "eslint ./src --fix",
@@ -26,7 +27,8 @@
     "@preact/compat": "^17.0.3",
     "preact": "^10.5.15",
     "preact-habitat": "^3.3.0",
-    "ua-parser-js": "^1.0.2"
+    "ua-parser-js": "^1.0.2",
+    "paf-core": "file:./paf-mvp-core-js"
   },
   "devDependencies": {
     "@rollup/plugin-alias": "^3.1.8",
