@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "es5",
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "../../node_modules/*"
+      ]
+    }
+  },
+  "include": [
+    "./",
+    "../../node_modules/paf-mvp-core-js/src/cookies.ts",
+    "../../node_modules/paf-mvp-core-js/src/endpoints.ts",
+    "../../node_modules/paf-mvp-core-js/src/user-agent.ts",
+    "../../node_modules/paf-mvp-core-js/src/model"
+  ]
+}

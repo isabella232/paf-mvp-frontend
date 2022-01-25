@@ -12,12 +12,31 @@ import livereload from 'rollup-plugin-livereload';
 
 import postCssInitial from 'postcss-initial';
 import autoprefixer from 'autoprefixer';
+import commonjs from "@rollup/plugin-commonjs";
 
 const DEV = process.env.ROLLUP_WATCH;
 const DIST = 'dist';
 
 // https://rollupjs.org/guide/en/#configuration-files
-export default defineConfig({
+export default [
+  defineConfig({
+    input: 'src/lib/prebid-sso-lib.ts',
+    output: {
+      file: `${DIST}/prebid-sso-lib.js`,
+      format: 'umd',
+      name: 'PrebidSSO',
+      sourcemap: true
+    },
+    treeshake: 'smallest', // remove unused code
+    plugins: [
+      typescript({
+        tsconfig: 'src/lib/tsconfig.json'
+      }),
+      commonjs(),
+      // terser(), // minify js output
+    ]
+  }),
+  defineConfig({
   input: 'src/main.tsx', // entry file
   output: {
     file: `${DIST}/app.bundle.js`,
@@ -87,4 +106,4 @@ export default defineConfig({
       }
     })(),
   ],
-});
+})];

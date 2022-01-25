@@ -5,11 +5,11 @@ import {
     IdAndPrefs,
     PostIdPrefsRequest,
     Preferences
-} from "../../paf-mvp-core-js/src/model/generated-model";
-import {Cookies, fromCookieValues, getPrebidDataCacheExpiration, UNKNOWN_TO_OPERATOR} from "../../paf-mvp-core-js/src/cookies";
-import {NewPrefs} from "../../paf-mvp-core-js/src/model/model";
-import {jsonEndpoints, redirectEndpoints, signAndVerifyEndpoints, uriParams} from "../../paf-mvp-core-js/src/endpoints";
-import {isBrowserKnownToSupport3PC} from "../../paf-mvp-core-js/src/user-agent";
+} from "paf-mvp-core-js/src/model/generated-model";
+import {Cookies, fromCookieValues, getPrebidDataCacheExpiration, UNKNOWN_TO_OPERATOR} from "paf-mvp-core-js/src/cookies";
+import {NewPrefs} from "paf-mvp-core-js/src/model/model";
+import {jsonEndpoints, redirectEndpoints, signAndVerifyEndpoints, uriParams} from "paf-mvp-core-js/src/endpoints";
+import {isBrowserKnownToSupport3PC} from "paf-mvp-core-js/src/user-agent";
 
 const logger = console;
 

@@ -25,13 +25,14 @@
   "homepage": "https://github.com/criteo/paf-mvp-frontend#readme",
   "dependencies": {
     "@preact/compat": "^17.0.3",
+    "paf-mvp-core-js": "criteo/paf-mvp-core-js#semver:0.0.1",
     "preact": "^10.5.15",
     "preact-habitat": "^3.3.0",
-    "ua-parser-js": "^1.0.2",
-    "paf-core": "file:./paf-mvp-core-js"
+    "ua-parser-js": "^1.0.2"
   },
   "devDependencies": {
     "@rollup/plugin-alias": "^3.1.8",
+    "@rollup/plugin-commonjs": "^21.0.1",
     "@rollup/plugin-image": "^2.1.1",
     "@rollup/plugin-replace": "^3.0.0",
     "@rollup/plugin-typescript": "^8.3.0",
@@ -42,7 +43,7 @@
     "eslint": "7.19.0",
     "eslint-config-preact": "^1.2.0",
     "postcss": "^8.3.11",
-    "postcss-initial": "^3.0.4",
+    "postcss-initial": "^4.0.1",
     "prettier": "^2.4.1",
     "rollup": "^2.59.0",
     "rollup-plugin-copy": "^3.4.0",
