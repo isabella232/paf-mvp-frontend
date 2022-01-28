@@ -1,12 +1,11 @@
 {
   "name": "paf-mvp-frontend",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Prebid Addressability Framework (PAF) frontend library and widget",
   "main": "src/main.tsx",
   "scripts": {
     "start": "rollup -c -w",
     "build": "rollup -c",
-    "update": "git submodule update; git submodule foreach --recursive \"git checkout main; git pull; npm run update\"",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint ./src",
     "lint:fix": "eslint ./src --fix",
@@ -28,7 +27,7 @@
     "preact": "^10.5.15",
     "preact-habitat": "^3.3.0",
     "ua-parser-js": "^1.0.2",
-    "paf-core": "file:./paf-mvp-core-js"
+    "paf-mvp-core-js": "criteo/paf-mvp-core-js#semver:0.0.2"
   },
   "devDependencies": {
     "@rollup/plugin-alias": "^3.1.8",

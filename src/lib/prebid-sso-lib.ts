@@ -1,15 +1,15 @@
 import UAParser from "ua-parser-js";
 import {
     GetIdPrefsResponse,
-    IdAndOptionalPrefs,
-    IdAndPrefs,
+    IdAndOptionalPreferences,
+    IdAndPreferences,
     PostIdPrefsRequest,
     Preferences
-} from "../../paf-mvp-core-js/src/model/generated-model";
-import {Cookies, fromCookieValues, getPrebidDataCacheExpiration, UNKNOWN_TO_OPERATOR} from "../../paf-mvp-core-js/src/cookies";
-import {NewPrefs} from "../../paf-mvp-core-js/src/model/model";
-import {jsonEndpoints, redirectEndpoints, signAndVerifyEndpoints, uriParams} from "../../paf-mvp-core-js/src/endpoints";
-import {isBrowserKnownToSupport3PC} from "../../paf-mvp-core-js/src/user-agent";
+} from "paf-mvp-core-js/src/model/generated-model";
+import {Cookies, fromCookieValues, getPrebidDataCacheExpiration, UNKNOWN_TO_OPERATOR} from "paf-mvp-core-js/src/cookies";
+import {NewPrefs} from "paf-mvp-core-js/src/model/model";
+import {jsonEndpoints, redirectEndpoints, signAndVerifyEndpoints, uriParams} from "paf-mvp-core-js/src/endpoints";
+import {isBrowserKnownToSupport3PC} from "paf-mvp-core-js/src/user-agent";
 
 const logger = console;
 
@@ -86,7 +86,7 @@ const removeCookie = (cookieName: string) => {
 
 let thirdPartyCookiesSupported: boolean | undefined = undefined;
 
-const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPrefs | undefined> => {
+const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPreferences | undefined> => {
 
     const getUrl = getProxyUrl(proxyBase)
     const redirectToRead = redirectToProxyRead(proxyBase)
@@ -207,7 +207,7 @@ const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
     }
 };
 
-const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPrefs): Promise<IdAndOptionalPrefs | undefined> => {
+const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPreferences): Promise<IdAndOptionalPreferences | undefined> => {
     const getUrl = getProxyUrl(proxyBase)
 
     // First clean up local cookies
@@ -253,7 +253,7 @@ const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPr
 /**
  * @param proxyBase ex: http://myproxy.com
  */
-export const getIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPrefs | undefined> => {
+export const getIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPreferences | undefined> => {
     const idAndPreferences = await processGetIdAndPreferences(proxyBase);
 
     logger.info('Finished', idAndPreferences)
@@ -261,7 +261,7 @@ export const getIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
     return idAndPreferences;
 }
 
-export const writeIdAndPref = async (proxyBase: string, input: IdAndPrefs): Promise<IdAndOptionalPrefs | undefined> => {
+export const writeIdAndPref = async (proxyBase: string, input: IdAndPreferences): Promise<IdAndOptionalPreferences | undefined> => {
     const idAndPreferences = await processWriteIdAndPref(proxyBase, input);
 
     logger.info('Finished', idAndPreferences)
