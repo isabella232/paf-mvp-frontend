@@ -84,7 +84,7 @@ const removeCookie = (cookieName: string) => {
     setCookie(cookieName, null, new Date(0))
 }
 
-let thirdPartyCookiesSupported: boolean | undefined = undefined;
+let thirdPartyCookiesSupported: boolean | undefined;
 
 const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPreferences | undefined> => {
 
