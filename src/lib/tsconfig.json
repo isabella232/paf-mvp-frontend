@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "es5",
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "../../node_modules/*"
+      ]
+    }
+  }
+}
