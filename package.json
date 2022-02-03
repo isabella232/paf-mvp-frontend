@@ -29,9 +29,7 @@
     "paf-mvp-core-js": "criteo/paf-mvp-core-js#semver:0.1.1",
     "preact": "^10.5.15",
     "preact-habitat": "^3.3.0",
-    "ua-parser-js": "^1.0.2"
-  },
-  "devDependencies": {
+    "ua-parser-js": "^1.0.2",
     "@rollup/plugin-alias": "^3.1.8",
     "@rollup/plugin-image": "^2.1.1",
     "@rollup/plugin-replace": "^3.0.0",
