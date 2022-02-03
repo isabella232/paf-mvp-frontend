@@ -12,12 +12,12 @@ To integrate the widget into website, Website Owner should inject the app bundle
 ```
 and add a tag with widget target attribute:
 ```html
-<div prebid-sso-root></div>
+<div paf-root></div>
 ```
 Website Owners can provide additional information to the widget, such a brand logo, brand name etc.
 ```html
 <!--NOT WORKING IN IE-->
-<div prebid-sso-root>
+<div paf-root>
   <script type="application/json">
       {
         "brandName": "The Publisher",
@@ -31,7 +31,7 @@ OR
 ```html
 <!-- WORKS EVERYWHERE -->
 <div
-  prebid-sso-root
+  paf-root
   data-prop-brand-name="The Publisher"
   data-prop-brand-logo-url="http://localhost:3000/images/default-customer-logo.png">
 </div>

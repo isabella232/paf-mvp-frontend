@@ -39,7 +39,7 @@ export default [
     ]
   }),
   defineConfig({
-    input: 'src/main.tsx', // entry file
+    input: 'src/main.ts', // entry file
     output: {
       file: `${DIST}/app.bundle.js`,
       format: 'umd', // preact-habitat requires "umd" format
