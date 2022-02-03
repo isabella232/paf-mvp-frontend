@@ -3,6 +3,8 @@
     "moduleResolution": "node",
     "target": "es5",
     "baseUrl": ".",
+    "declaration": true,
+    "declarationDir": "",
     "paths": {
       "*": [
         "../../node_modules/*"
