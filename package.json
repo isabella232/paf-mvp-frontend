@@ -2,6 +2,7 @@
   "name": "paf-mvp-frontend",
   "version": "0.1.1",
   "description": "Prebid Addressability Framework (PAF) frontend library and widget",
+  "type": "commonjs",
   "main": "src/main.tsx",
   "scripts": {
     "start": "rollup -c -w",
