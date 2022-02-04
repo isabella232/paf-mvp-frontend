@@ -17,7 +17,7 @@ const redirect = (url: string): void => {
     document.location = url;
 }
 
-// Remove any "prebid data" param from the query string
+// Remove any "paf data" param from the query string
 // From https://stackoverflow.com/questions/1634748/how-can-i-delete-a-query-string-parameter-in-javascript/25214672#25214672
 // TODO should be able to use a more standard way, but URL class is immutable :-(
 const removeUrlParameter = (url: string, parameter: string) => {
