@@ -30,7 +30,7 @@ const removeUrlParameter = (url: string, parameter: string) => {
         // Join it back up
         const queryString = urlParts.join('?');
 
-        const prefix = encodeURIComponent(parameter) + '=';
+        const prefix = `${encodeURIComponent(parameter)}=`;
         const parts = queryString.split(/[&;]/g);
 
         // Reverse iteration as may be destructive
@@ -41,14 +41,14 @@ const removeUrlParameter = (url: string, parameter: string) => {
             }
         }
 
-        url = urlBase + (parts.length > 0 ? ('?' + parts.join('&')) : '');
+        url = urlBase + (parts.length > 0 ? (`?${parts.join('&')}`) : '');
     }
 
     return url;
 };
 
 const getCookieValue = (name: string): string => (
-    document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
+    document.cookie.match(`(^|;)\\s*${name}\\s*=\\s*([^;]+)`)?.pop() || ''
 )
 
 const setCookie = (name: string, value: string, expiration: Date) => {
@@ -148,8 +148,8 @@ const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
         logger.info('Browser known to support 3PC: YES')
 
         logger.info('Attempt to read from JSON')
-        const response = await fetch(getUrl(jsonEndpoints.read), {credentials: 'include'})
-        const operatorData = await response.json() as GetIdPrefsResponse
+        const readResponse = await fetch(getUrl(jsonEndpoints.read), {credentials: 'include'})
+        const operatorData = await readResponse.json() as GetIdPrefsResponse
 
         const returnedId = operatorData.body.identifiers?.[0]
         const hasPersistedId = returnedId?.persisted === undefined || returnedId?.persisted
@@ -167,44 +167,35 @@ const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
             saveCookieValueOrUnknown(Cookies.PREFS, operatorData.body.preferences)
 
             return operatorData.body
-        } else {
-            logger.info('Operator returned id & prefs: NO')
-
-            logger.info('Verify 3PC on operator')
-            // Note: need to include credentials to make sure cookies are sent
-            const response = await fetch(getUrl(jsonEndpoints.verify3PC), {credentials: 'include'})
-            const testOk = await response.json()
-
-            // 4. 3d party cookie ok?
-            if (testOk) {
-                logger.info('3PC verification OK: YES')
-
-                thirdPartyCookiesSupported = true;
-
-                logger.info('Save "unknown"')
-                setCookie(Cookies.ID, UNKNOWN_TO_OPERATOR, getPrebidDataCacheExpiration())
-                setCookie(Cookies.PREFS, UNKNOWN_TO_OPERATOR, getPrebidDataCacheExpiration())
-
-                return {identifiers: [returnedId]}
-            } else {
-                logger.info('3PC verification OK: NO')
-
-                thirdPartyCookiesSupported = false;
-
-                logger.info('Fallback to JS redirect')
-                return redirectToRead() as undefined
-            }
-
         }
+        logger.info('Operator returned id & prefs: NO')
 
+        logger.info('Verify 3PC on operator')
+        // Note: need to include credentials to make sure cookies are sent
+        const verifyResponse = await fetch(getUrl(jsonEndpoints.verify3PC), {credentials: 'include'})
+        const testOk = await verifyResponse.json()
+
+        // 4. 3d party cookie ok?
+        if (testOk) {
+            logger.info('3PC verification OK: YES')
+
+            thirdPartyCookiesSupported = true;
+
+            logger.info('Save "unknown"')
+            setCookie(Cookies.ID, UNKNOWN_TO_OPERATOR, getPrebidDataCacheExpiration())
+            setCookie(Cookies.PREFS, UNKNOWN_TO_OPERATOR, getPrebidDataCacheExpiration())
+
+            return {identifiers: [returnedId]}
+        }
+        logger.info('3PC verification OK: NO')
+        thirdPartyCookiesSupported = false;
+        logger.info('Fallback to JS redirect')
     } else {
         logger.info('Browser known to support 3PC: NO')
-
         thirdPartyCookiesSupported = false;
-
         logger.info('JS redirect')
-        return redirectToRead() as undefined
     }
+  redirectToRead()
 };
 
 const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPreferences): Promise<IdAndOptionalPreferences | undefined> => {
@@ -240,14 +231,13 @@ const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPr
 
         return operatorData.body
 
-    } else {
-        // Redirect. Signing of the request will happen on the backend proxy
-        const redirectUrl = new URL(getUrl(redirectEndpoints.write))
-        redirectUrl.searchParams.set(uriParams.returnUrl, location.href)
-        redirectUrl.searchParams.set(uriParams.data, JSON.stringify(unsignedRequest))
-
-        return redirect(redirectUrl.toString()) as undefined;
     }
+    // Redirect. Signing of the request will happen on the backend proxy
+    const redirectUrl = new URL(getUrl(redirectEndpoints.write))
+    redirectUrl.searchParams.set(uriParams.returnUrl, location.href)
+    redirectUrl.searchParams.set(uriParams.data, JSON.stringify(unsignedRequest))
+
+    redirect(redirectUrl.toString());
 }
 
 /**
