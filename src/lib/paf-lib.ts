@@ -1,9 +1,9 @@
 import UAParser from "ua-parser-js";
 import {
-    GetIdPrefsResponse,
-    IdAndOptionalPreferences,
-    IdAndPreferences,
-    PostIdPrefsRequest,
+    GetIdsPrefsResponse,
+    IdsAndOptionalPreferences,
+    IdsAndPreferences,
+    PostIdsPrefsRequest,
     Preferences
 } from "paf-mvp-core-js/dist/model/generated-model";
 import {Cookies, fromCookieValues, getPrebidDataCacheExpiration, UNKNOWN_TO_OPERATOR} from "paf-mvp-core-js/dist/cookies";
@@ -86,7 +86,7 @@ const removeCookie = (cookieName: string) => {
 
 let thirdPartyCookiesSupported: boolean | undefined;
 
-const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPreferences | undefined> => {
+const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOptionalPreferences | undefined> => {
 
     const getUrl = getProxyUrl(proxyBase)
     const redirectToRead = redirectToProxyRead(proxyBase)
@@ -122,13 +122,13 @@ const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
             body: uriData,
             credentials: 'include'
         })
-        const verificationResult = await response.json() as GetIdPrefsResponse
+        const verificationResult = await response.json() as GetIdsPrefsResponse
 
         if (!verificationResult) {
             throw 'Verification failed'
         }
 
-        const operatorData = JSON.parse(uriData ?? '{}') as GetIdPrefsResponse
+        const operatorData = JSON.parse(uriData ?? '{}') as GetIdsPrefsResponse
 
         // 3. Received data?
         const returnedId = operatorData.body.identifiers?.[0]
@@ -149,7 +149,7 @@ const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
 
         logger.info('Attempt to read from JSON')
         const readResponse = await fetch(getUrl(jsonEndpoints.read), {credentials: 'include'})
-        const operatorData = await readResponse.json() as GetIdPrefsResponse
+        const operatorData = await readResponse.json() as GetIdsPrefsResponse
 
         const returnedId = operatorData.body.identifiers?.[0]
         const hasPersistedId = returnedId?.persisted === undefined || returnedId?.persisted
@@ -198,7 +198,7 @@ const processGetIdAndPreferences = async (proxyBase: string): Promise<IdAndOptio
   redirectToRead()
 };
 
-const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPreferences): Promise<IdAndOptionalPreferences | undefined> => {
+const processWriteIdsAndPref = async (proxyBase: string, unsignedRequest: IdsAndPreferences): Promise<IdsAndOptionalPreferences | undefined> => {
     const getUrl = getProxyUrl(proxyBase)
 
     // First clean up local cookies
@@ -213,7 +213,7 @@ const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPr
             body: JSON.stringify(unsignedRequest),
             credentials: 'include'
         })
-        const signedData = await signedResponse.json() as PostIdPrefsRequest
+        const signedData = await signedResponse.json() as PostIdsPrefsRequest
 
         // 2) send
         const response = await fetch(getUrl(jsonEndpoints.write), {
@@ -221,7 +221,7 @@ const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPr
             body: JSON.stringify(signedData),
             credentials: 'include'
         })
-        const operatorData = await response.json() as GetIdPrefsResponse
+        const operatorData = await response.json() as GetIdsPrefsResponse
 
         const returnedId = operatorData.body.identifiers?.[0]
         const hasPersistedId = returnedId?.persisted === undefined || returnedId?.persisted
@@ -243,20 +243,20 @@ const processWriteIdAndPref = async (proxyBase: string, unsignedRequest: IdAndPr
 /**
  * @param proxyBase ex: http://myproxy.com
  */
-export const getIdAndPreferences = async (proxyBase: string): Promise<IdAndOptionalPreferences | undefined> => {
-    const idAndPreferences = await processGetIdAndPreferences(proxyBase);
+export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOptionalPreferences | undefined> => {
+    const idsAndPreferences = await processGetIdsAndPreferences(proxyBase);
 
-    logger.info('Finished', idAndPreferences)
+    logger.info('Finished', idsAndPreferences)
 
-    return idAndPreferences;
+    return idsAndPreferences;
 }
 
-export const writeIdAndPref = async (proxyBase: string, input: IdAndPreferences): Promise<IdAndOptionalPreferences | undefined> => {
-    const idAndPreferences = await processWriteIdAndPref(proxyBase, input);
+export const writeIdsAndPref = async (proxyBase: string, input: IdsAndPreferences): Promise<IdsAndOptionalPreferences | undefined> => {
+    const idsAndPreferences = await processWriteIdsAndPref(proxyBase, input);
 
-    logger.info('Finished', idAndPreferences)
+    logger.info('Finished', idsAndPreferences)
 
-    return idAndPreferences;
+    return idsAndPreferences;
 }
 
 export const signPreferences = async (proxyBase: string, input: NewPrefs): Promise<Preferences> => {
