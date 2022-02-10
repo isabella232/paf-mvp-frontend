@@ -4,7 +4,8 @@ import {
   IdsAndOptionalPreferences,
   IdsAndPreferences,
   PostIdsPrefsRequest,
-  Preferences
+  Preferences,
+  RedirectGetIdsPrefsResponse
 } from "paf-mvp-core-js/dist/model/generated-model";
 import {
   Cookies,
@@ -13,8 +14,14 @@ import {
   UNKNOWN_TO_OPERATOR
 } from "paf-mvp-core-js/dist/cookies";
 import {NewPrefs} from "paf-mvp-core-js/dist/model/model";
-import {jsonEndpoints, redirectEndpoints, signAndVerifyEndpoints, uriParams} from "paf-mvp-core-js/dist/endpoints";
+import {jsonEndpoints, proxyEndpoints, proxyUriParams, redirectEndpoints} from "paf-mvp-core-js/dist/endpoints";
 import {isBrowserKnownToSupport3PC} from "paf-mvp-core-js/dist/user-agent";
+import {decodeBase64, QSParam} from "paf-mvp-core-js/dist/query-string";
+
+const getPafDataFromQueryString = <T>(urlParams: URLSearchParams): T|undefined => {
+  const data = urlParams.get(QSParam.paf);
+  return data ? JSON.parse(decodeBase64(data)) as T : undefined
+}
 
 const logger = console;
 
@@ -61,16 +68,10 @@ const setCookie = (name: string, value: string, expiration: Date) => {
 }
 
 // Update the URL shown in the address bar, without Prebid SSO data
-const cleanUpUrL = () => history.pushState(null, "", removeUrlParameter(location.href, uriParams.data));
+const cleanUpUrL = () => history.pushState(null, "", removeUrlParameter(location.href, QSParam.paf));
 
 const getProxyUrl = (proxyBase: string) => (endpoint: string): string => {
   return `${proxyBase}/prebid${endpoint}`
-}
-
-const redirectToProxyRead = (proxyBase: string) => (): void => {
-  const redirectUrl = new URL(getProxyUrl(proxyBase)(redirectEndpoints.read))
-  redirectUrl.searchParams.set(uriParams.returnUrl, location.href)
-  redirect(redirectUrl.toString());
 }
 
 const saveCookieValueOrUnknown = <T>(cookieName: string, cookieValue: T | undefined): string => {
@@ -94,7 +95,6 @@ let thirdPartyCookiesSupported: boolean | undefined;
 const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOptionalPreferences | undefined> => {
 
   const getUrl = getProxyUrl(proxyBase)
-  const redirectToRead = redirectToProxyRead(proxyBase)
 
   // 1. Any Prebid 1st party cookie?
   const rawIds = getCookieValue(Cookies.identifiers)
@@ -110,7 +110,7 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
   logger.info('Cookie found: NO')
 
   const urlParams = new URLSearchParams(window.location.search);
-  const uriData = urlParams.get(uriParams.data);
+  const uriData = getPafDataFromQueryString<RedirectGetIdsPrefsResponse>(urlParams);
 
   cleanUpUrL();
 
@@ -118,13 +118,18 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
   if (uriData) {
     logger.info('Redirected from operator: YES')
 
+    if (!uriData.response) {
+      // FIXME do something smart in case of error
+      throw uriData.error
+    }
+
     // Consider that if we have been redirected, it means 3PC are not supported
     thirdPartyCookiesSupported = false;
 
     // Verify message
-    const response = await fetch(getUrl(signAndVerifyEndpoints.verifyRead), {
+    const response = await fetch(getUrl(proxyEndpoints.verifyRead), {
       method: 'POST',
-      body: uriData,
+      body: JSON.stringify(uriData.response),
       credentials: 'include'
     })
     const verificationResult = await response.json() as GetIdsPrefsResponse
@@ -133,10 +138,10 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
       throw 'Verification failed'
     }
 
-    const operatorData = JSON.parse(uriData ?? '{}') as GetIdsPrefsResponse
+    const operatorData = uriData.response
 
     // 3. Received data?
-    const persistedIds = operatorData.body.identifiers.filter(identifier => identifier?.persisted !== false);
+    const persistedIds = operatorData.body.identifiers?.filter(identifier => identifier?.persisted !== false);
     saveCookieValueOrUnknown(Cookies.identifiers, persistedIds.length === 0 ? undefined : persistedIds)
     saveCookieValueOrUnknown(Cookies.preferences, operatorData.body.preferences)
 
@@ -155,7 +160,7 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
     const readResponse = await fetch(getUrl(jsonEndpoints.read), {credentials: 'include'})
     const operatorData = await readResponse.json() as GetIdsPrefsResponse
 
-    const persistedIds = operatorData.body.identifiers.filter(identifier => identifier?.persisted !== false);
+    const persistedIds = operatorData.body.identifiers?.filter(identifier => identifier?.persisted !== false);
 
     // 3. Received data?
     if (persistedIds) {
@@ -198,7 +203,10 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
     thirdPartyCookiesSupported = false;
     logger.info('JS redirect')
   }
-  redirectToRead()
+
+  const redirectUrl = new URL(getUrl(redirectEndpoints.read))
+  redirectUrl.searchParams.set(proxyUriParams.returnUrl, location.href)
+  redirect(redirectUrl.toString());
 };
 
 const processWriteIdsAndPref = async (proxyBase: string, unsignedRequest: IdsAndPreferences): Promise<IdsAndOptionalPreferences | undefined> => {
@@ -211,7 +219,7 @@ const processWriteIdsAndPref = async (proxyBase: string, unsignedRequest: IdsAnd
   // FIXME this boolean will be up to date only if a read occurred just before. If not, would need to explicitly test
   if (thirdPartyCookiesSupported) {
     // 1) sign the request
-    const signedResponse = await fetch(getUrl(signAndVerifyEndpoints.signWrite), {
+    const signedResponse = await fetch(getUrl(proxyEndpoints.signWrite), {
       method: 'POST',
       body: JSON.stringify(unsignedRequest),
       credentials: 'include'
@@ -236,8 +244,8 @@ const processWriteIdsAndPref = async (proxyBase: string, unsignedRequest: IdsAnd
   }
   // Redirect. Signing of the request will happen on the backend proxy
   const redirectUrl = new URL(getUrl(redirectEndpoints.write))
-  redirectUrl.searchParams.set(uriParams.returnUrl, location.href)
-  redirectUrl.searchParams.set(uriParams.data, JSON.stringify(unsignedRequest))
+  redirectUrl.searchParams.set(proxyUriParams.returnUrl, location.href)
+  redirectUrl.searchParams.set(proxyUriParams.message, JSON.stringify(unsignedRequest))
 
   redirect(redirectUrl.toString());
 }
@@ -264,7 +272,7 @@ export const writeIdsAndPref = async (proxyBase: string, input: IdsAndPreference
 export const signPreferences = async (proxyBase: string, input: NewPrefs): Promise<Preferences> => {
   const getUrl = getProxyUrl(proxyBase)
 
-  const signedResponse = await fetch(getUrl(signAndVerifyEndpoints.signPrefs), {
+  const signedResponse = await fetch(getUrl(proxyEndpoints.signPrefs), {
     method: 'POST',
     body: JSON.stringify(input),
     credentials: 'include'
