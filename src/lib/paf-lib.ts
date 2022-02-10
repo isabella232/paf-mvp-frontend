@@ -5,7 +5,7 @@ import {
   IdsAndPreferences,
   PostIdsPrefsRequest,
   Preferences,
-  RedirectGetIdsPrefsResponse
+  Test3Pc
 } from "paf-mvp-core-js/dist/model/generated-model";
 import {
   Cookies,
@@ -16,12 +16,7 @@ import {
 import {NewPrefs} from "paf-mvp-core-js/dist/model/model";
 import {jsonEndpoints, proxyEndpoints, proxyUriParams, redirectEndpoints} from "paf-mvp-core-js/dist/endpoints";
 import {isBrowserKnownToSupport3PC} from "paf-mvp-core-js/dist/user-agent";
-import {decodeBase64, QSParam} from "paf-mvp-core-js/dist/query-string";
-
-const getPafDataFromQueryString = <T>(urlParams: URLSearchParams): T|undefined => {
-  const data = urlParams.get(QSParam.paf);
-  return data ? JSON.parse(decodeBase64(data)) as T : undefined
-}
+import {QSParam} from "paf-mvp-core-js/dist/query-string";
 
 const logger = console;
 
@@ -110,7 +105,7 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
   logger.info('Cookie found: NO')
 
   const urlParams = new URLSearchParams(window.location.search);
-  const uriData = getPafDataFromQueryString<RedirectGetIdsPrefsResponse>(urlParams);
+  const uriData = urlParams.get(QSParam.paf)
 
   cleanUpUrL();
 
@@ -118,27 +113,23 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
   if (uriData) {
     logger.info('Redirected from operator: YES')
 
-    if (!uriData.response) {
-      // FIXME do something smart in case of error
-      throw uriData.error
-    }
-
     // Consider that if we have been redirected, it means 3PC are not supported
     thirdPartyCookiesSupported = false;
 
     // Verify message
-    const response = await fetch(getUrl(proxyEndpoints.verifyRead), {
+    const response = await fetch(getUrl(proxyEndpoints.verifyRedirectRead), {
       method: 'POST',
-      body: JSON.stringify(uriData.response),
+      body: uriData,
       credentials: 'include'
     })
-    const verificationResult = await response.json() as GetIdsPrefsResponse
+    const operatorData = (await response.json()) as GetIdsPrefsResponse
 
-    if (!verificationResult) {
+    if (!operatorData) {
       throw 'Verification failed'
     }
 
-    const operatorData = uriData.response
+    console.debug('received:')
+    console.debug(operatorData)
 
     // 3. Received data?
     const persistedIds = operatorData.body.identifiers?.filter(identifier => identifier?.persisted !== false);
@@ -163,7 +154,7 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
     const persistedIds = operatorData.body.identifiers?.filter(identifier => identifier?.persisted !== false);
 
     // 3. Received data?
-    if (persistedIds) {
+    if (persistedIds?.length > 0) {
       logger.info('Operator returned id & prefs: YES')
 
       // If we got data, it means 3PC are supported
@@ -181,10 +172,10 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
     logger.info('Verify 3PC on operator')
     // Note: need to include credentials to make sure cookies are sent
     const verifyResponse = await fetch(getUrl(jsonEndpoints.verify3PC), {credentials: 'include'})
-    const testOk = await verifyResponse.json()
+    const testOk = (await verifyResponse.json()) as Test3Pc
 
     // 4. 3d party cookie ok?
-    if (testOk) {
+    if (testOk?.timestamp > 0) { // TODO might want to do more verification
       logger.info('3PC verification OK: YES')
 
       thirdPartyCookiesSupported = true;
@@ -212,12 +203,18 @@ const processGetIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
 const processWriteIdsAndPref = async (proxyBase: string, unsignedRequest: IdsAndPreferences): Promise<IdsAndOptionalPreferences | undefined> => {
   const getUrl = getProxyUrl(proxyBase)
 
+  console.log('Attempt to write:')
+  console.log(unsignedRequest.identifiers)
+  console.log(unsignedRequest.preferences)
+
   // First clean up local cookies
   removeCookie(Cookies.identifiers)
   removeCookie(Cookies.preferences)
 
   // FIXME this boolean will be up to date only if a read occurred just before. If not, would need to explicitly test
   if (thirdPartyCookiesSupported) {
+    console.log('3PC supported')
+
     // 1) sign the request
     const signedResponse = await fetch(getUrl(proxyEndpoints.signWrite), {
       method: 'POST',
@@ -242,12 +239,19 @@ const processWriteIdsAndPref = async (proxyBase: string, unsignedRequest: IdsAnd
     return operatorData.body
 
   }
+
+  console.log('3PC not supported: redirect')
+
   // Redirect. Signing of the request will happen on the backend proxy
   const redirectUrl = new URL(getUrl(redirectEndpoints.write))
   redirectUrl.searchParams.set(proxyUriParams.returnUrl, location.href)
   redirectUrl.searchParams.set(proxyUriParams.message, JSON.stringify(unsignedRequest))
 
-  redirect(redirectUrl.toString());
+  const url = redirectUrl.toString();
+
+  console.log(`Redirecting to ${url}`)
+
+  redirect(url);
 }
 
 /**
