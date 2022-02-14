@@ -7,16 +7,12 @@ import {
   Preferences,
   Test3Pc
 } from "paf-mvp-core-js/dist/model/generated-model";
-import {
-  Cookies,
-  fromCookieValues,
-  getPrebidDataCacheExpiration,
-  UNKNOWN_TO_OPERATOR
-} from "paf-mvp-core-js/dist/cookies";
+import {Cookies, getPrebidDataCacheExpiration} from "paf-mvp-core-js/dist/cookies";
 import {NewPrefs} from "paf-mvp-core-js/dist/model/model";
 import {jsonEndpoints, proxyEndpoints, proxyUriParams, redirectEndpoints} from "paf-mvp-core-js/dist/endpoints";
 import {isBrowserKnownToSupport3PC} from "paf-mvp-core-js/dist/user-agent";
 import {QSParam} from "paf-mvp-core-js/dist/query-string";
+import {fromClientCookieValues, PafStatus, getPafStatus} from "paf-mvp-core-js/dist/operator-client-commons";
 
 const logger = console;
 
@@ -62,20 +58,21 @@ const setCookie = (name: string, value: string, expiration: Date) => {
   document.cookie = `${name}=${value};expires=${expiration.toUTCString()}`
 }
 
-// Update the URL shown in the address bar, without Prebid SSO data
+// Update the URL shown in the address bar, without PAF data
 const cleanUpUrL = () => history.pushState(null, "", removeUrlParameter(location.href, QSParam.paf));
 
 const getProxyUrl = (proxyBase: string) => (endpoint: string): string => {
-  return `${proxyBase}/prebid${endpoint}`
+  return `${proxyBase}/paf${endpoint}`
 }
 
-const saveCookieValueOrUnknown = <T>(cookieName: string, cookieValue: T | undefined): string => {
+const saveCookieValue = <T>(cookieName: string, cookieValue: T | undefined): string => {
   logger.info(`Operator returned value for ${cookieName}: ${cookieValue !== undefined ? 'YES' : 'NO'}`)
 
-  const valueToStore = cookieValue ? JSON.stringify(cookieValue) : UNKNOWN_TO_OPERATOR
+  const valueToStore = (cookieValue === undefined) ? PafStatus.NOT_PARTICIPATING : JSON.stringify(cookieValue)
 
   logger.info(`Save ${cookieName} value: ${valueToStore}`)
 
+  // TODO use different expiration if "not participating"
   setCookie(cookieName, valueToStore, getPrebidDataCacheExpiration())
 
   return valueToStore;
@@ -87,32 +84,51 @@ const removeCookie = (cookieName: string) => {
 
 let thirdPartyCookiesSupported: boolean | undefined;
 
+export interface Options {
+  proxyBase: string
+}
+
+export interface RefreshIdsAndPrefsOptions extends Options {
+  triggerRedirectIfNeeded: boolean
+}
+
+export interface WriteIdsAndPrefsOptions extends Options {
+
+}
+
+export interface SignPrefsOptions extends Options {
+
+}
+
 /**
- * Get ids and preferences,
- * @param proxyBase ex: http://myproxy.com
+ * Ensure local cookies for PAF identifiers and preferences are up-to-date.
+ * If they aren't, contact the operator to get fresh values.
+ * @param options:
+ * - proxyBase: base URL (scheme, servername) of operator proxy. ex: http://myproxy.com
+ * - triggerRedirectIfNeeded: `true` if redirect can be triggered immediately, `false` if it should wait
+ * @return ids and preferences or undefined if user is not participating or if values can't be refreshed
  */
-export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOptionalPreferences | undefined> => {
+export const refreshIdsAndPreferences = async (
+  {proxyBase, triggerRedirectIfNeeded}: RefreshIdsAndPrefsOptions
+): Promise<IdsAndOptionalPreferences | undefined> => {
+  const getUrl = getProxyUrl(proxyBase)
+
+  const redirectToRead = () => {
+    logger.info('Redirect to operator')
+    const redirectUrl = new URL(getUrl(redirectEndpoints.read))
+    redirectUrl.searchParams.set(proxyUriParams.returnUrl, location.href)
+    redirect(redirectUrl.toString());
+  };
+
   const processGetIdsAndPreferences = async (): Promise<IdsAndOptionalPreferences | undefined> => {
-
-    const getUrl = getProxyUrl(proxyBase)
-
-    // 1. Any Prebid 1st party cookie?
-    const rawIds = getCookieValue(Cookies.identifiers)
-    const rawPreferences = getCookieValue(Cookies.preferences)
-
-    if (rawIds && rawPreferences) {
-      logger.info('Cookie found: YES')
-      cleanUpUrL();
-
-      return fromCookieValues(rawIds, rawPreferences)
-    }
-
-    logger.info('Cookie found: NO')
-
     const urlParams = new URLSearchParams(window.location.search);
     const uriData = urlParams.get(QSParam.paf)
 
     cleanUpUrL();
+
+    // 1. Any Prebid 1st party cookie?
+    const rawIds = getCookieValue(Cookies.identifiers)
+    const rawPreferences = getCookieValue(Cookies.preferences)
 
     // 2. Redirected from operator?
     if (uriData) {
@@ -138,13 +154,35 @@ export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
 
       // 3. Received data?
       const persistedIds = operatorData.body.identifiers?.filter(identifier => identifier?.persisted !== false);
-      saveCookieValueOrUnknown(Cookies.identifiers, persistedIds.length === 0 ? undefined : persistedIds)
-      saveCookieValueOrUnknown(Cookies.preferences, operatorData.body.preferences)
+      saveCookieValue(Cookies.identifiers, persistedIds.length === 0 ? undefined : persistedIds)
+      saveCookieValue(Cookies.preferences, operatorData.body.preferences)
 
       return operatorData.body
     }
 
     logger.info('Redirected from operator: NO')
+
+    if (getPafStatus(rawIds, rawPreferences) === PafStatus.REDIRECT_NEEDED) {
+      logger.info('Redirect previously deferred')
+
+      if (triggerRedirectIfNeeded) {
+        redirectToRead();
+      }
+
+      return undefined;
+    }
+
+    if (rawIds && rawPreferences) {
+      logger.info('Cookie found: YES')
+
+      if (getPafStatus(rawIds, rawPreferences) === PafStatus.NOT_PARTICIPATING) {
+        logger.info('User is not participating')
+      }
+
+      return fromClientCookieValues(rawIds, rawPreferences)
+    }
+
+    logger.info('Cookie found: NO')
 
     // 4. Browser known to support 3PC?
     const userAgent = new UAParser(navigator.userAgent);
@@ -167,8 +205,8 @@ export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
 
         // /!\ Note: we don't need to verify the message here as it is a REST call
 
-        saveCookieValueOrUnknown(Cookies.identifiers, persistedIds)
-        saveCookieValueOrUnknown(Cookies.preferences, operatorData.body.preferences)
+        saveCookieValue(Cookies.identifiers, persistedIds)
+        saveCookieValue(Cookies.preferences, operatorData.body.preferences)
 
         return operatorData.body
       }
@@ -185,9 +223,9 @@ export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
 
         thirdPartyCookiesSupported = true;
 
-        logger.info('Save "unknown"')
-        setCookie(Cookies.identifiers, UNKNOWN_TO_OPERATOR, getPrebidDataCacheExpiration())
-        setCookie(Cookies.preferences, UNKNOWN_TO_OPERATOR, getPrebidDataCacheExpiration())
+        logger.info('Save "not participating"')
+        setCookie(Cookies.identifiers, PafStatus.NOT_PARTICIPATING, getPrebidDataCacheExpiration())
+        setCookie(Cookies.preferences, PafStatus.NOT_PARTICIPATING, getPrebidDataCacheExpiration())
 
         return {identifiers: operatorData.body.identifiers}
       }
@@ -200,9 +238,15 @@ export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
       logger.info('JS redirect')
     }
 
-    const redirectUrl = new URL(getUrl(redirectEndpoints.read))
-    redirectUrl.searchParams.set(proxyUriParams.returnUrl, location.href)
-    redirect(redirectUrl.toString());
+    if (triggerRedirectIfNeeded) {
+      redirectToRead();
+    } else {
+      logger.info('Deffer redirect to later, in agreement with options')
+      setCookie(Cookies.identifiers, PafStatus.REDIRECT_NEEDED, getPrebidDataCacheExpiration())
+      setCookie(Cookies.preferences, PafStatus.REDIRECT_NEEDED, getPrebidDataCacheExpiration())
+    }
+
+    return undefined;
   };
 
   const idsAndPreferences = await processGetIdsAndPreferences();
@@ -212,10 +256,17 @@ export const getIdsAndPreferences = async (proxyBase: string): Promise<IdsAndOpt
   return idsAndPreferences;
 }
 
-export const writeIdsAndPref = async (proxyBase: string, input: IdsAndPreferences): Promise<IdsAndOptionalPreferences | undefined> => {
-  const processWriteIdsAndPref = async (): Promise<IdsAndOptionalPreferences | undefined> => {
-    const getUrl = getProxyUrl(proxyBase)
+/**
+ * Write update of identifiers and preferences on the PAF domain
+ * @param options:
+ * - proxyBase: base URL (scheme, servername) of operator proxy. ex: http://myproxy.com
+ * @param input the identifiers and preferences to write
+ * @return the written identifiers and preferences
+ */
+export const writeIdsAndPref = async ({proxyBase}: WriteIdsAndPrefsOptions, input: IdsAndPreferences): Promise<IdsAndOptionalPreferences | undefined> => {
+  const getUrl = getProxyUrl(proxyBase)
 
+  const processWriteIdsAndPref = async (): Promise<IdsAndOptionalPreferences | undefined> => {
     console.log('Attempt to write:')
     console.log(input.identifiers)
     console.log(input.preferences)
@@ -246,11 +297,10 @@ export const writeIdsAndPref = async (proxyBase: string, input: IdsAndPreference
 
       const persistedIds = operatorData.body.identifiers.filter(identifier => identifier?.persisted !== false);
 
-      saveCookieValueOrUnknown(Cookies.identifiers, persistedIds.length === 0 ? undefined : persistedIds)
-      saveCookieValueOrUnknown(Cookies.preferences, operatorData.body.preferences);
+      saveCookieValue(Cookies.identifiers, persistedIds.length === 0 ? undefined : persistedIds)
+      saveCookieValue(Cookies.preferences, operatorData.body.preferences);
 
       return operatorData.body
-
     }
 
     console.log('3PC not supported: redirect')
@@ -274,7 +324,14 @@ export const writeIdsAndPref = async (proxyBase: string, input: IdsAndPreference
   return idsAndPreferences;
 }
 
-export const signPreferences = async (proxyBase: string, input: NewPrefs): Promise<Preferences> => {
+/**
+ * Sign preferences
+ * @param options:
+ * - proxyBase: base URL (scheme, servername) of operator proxy. ex: http://myproxy.com
+ * @param input the main identifier of the web user, and the optin value
+ * @return the signed Preferences
+ */
+export const signPreferences = async ({proxyBase}: SignPrefsOptions, input: NewPrefs): Promise<Preferences> => {
   const getUrl = getProxyUrl(proxyBase)
 
   const signedResponse = await fetch(getUrl(proxyEndpoints.signPrefs), {

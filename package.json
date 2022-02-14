@@ -1,6 +1,6 @@
 {
   "name": "paf-mvp-frontend",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Prebid Addressability Framework (PAF) frontend library and widget",
   "main": "src/main.tsx",
   "scripts": {
