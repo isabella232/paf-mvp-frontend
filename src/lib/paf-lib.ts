@@ -92,13 +92,9 @@ export interface RefreshIdsAndPrefsOptions extends Options {
   triggerRedirectIfNeeded: boolean
 }
 
-export interface WriteIdsAndPrefsOptions extends Options {
+export type WriteIdsAndPrefsOptions = Options
 
-}
-
-export interface SignPrefsOptions extends Options {
-
-}
+export type SignPrefsOptions = Options
 
 /**
  * Ensure local cookies for PAF identifiers and preferences are up-to-date.
